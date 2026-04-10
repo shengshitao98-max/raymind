@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能农田作业机器人控制台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            background: linear-gradient(90deg, #0f3460, #e94560);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        h1 { font-size: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .subtitle { color: #ffd700; margin-top: 10px; }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel h2 {
+            border-bottom: 2px solid #e94560;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            color: #e94560;
+        }
+        
+        #map {
+            width: 100%;
+            height: 500px;
+            background: #0a1628;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #0f3460;
+        }
+        
+        .grid-line {
+            position: absolute;
+            background: rgba(15, 52, 96, 0.5);
+        }
+        
+        #robot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #00ff88;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px #00ff88;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        #robot::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid #00ff88;
+        }
+        
+        .target {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #ff4757;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.3); }
+        }
+        
+        .waypoint {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #ffd700;
+            border-radius: 3px;
+            transform: translate(-50%, -50%);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .status-item {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .status-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        
+        .status-label { color: #aaa; font-size: 0.9em; }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .btn-primary { background: #e94560; color: white; }
+        .btn-primary:hover { background: #ff6b8a; transform: translateY(-2px); }
+        
+        .btn-success { background: #00ff88; color: #1a1a2e; }
+        .btn-success:hover { background: #66ffaa; }
+        
+        .btn-warning { background: #ffd700; color: #1a1a2e; }
+        .btn-warning:hover { background: #ffdd44; }
+        
+        .btn-danger { background: #ff4757; color: white; }
+        .btn-danger:hover { background: #ff6b7a; }
+        
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .log-area {
+            background: #0a1628;
+            border-radius: 10px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        
+        .log-item { padding: 5px 0; border-bottom: 1px solid #1a2a4a; }
+        .log-time { color: #666; }
+        .log-info { color: #00ff88; }
+        .log-warn { color: #ffd700; }
+        .log-error { color: #ff4757; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #1a2a4a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00ccff);
+            transition: width 0.3s;
+        }
+        
+        .target-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .target-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 3px solid #ff4757;
+        }
+        
+        .target-item.eradicated {
+            border-left-color: #00ff88;
+            opacity: 0.6;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌾 智能农田作业机器人</h1>
+            <div class="subtitle">Farm Robot OS - 可视化控制台</div>
+        </header>
+        
+        <div class="main-grid">
+            <div class="left-col">
+                <div class="panel">
+                    <h2>🗺️ 农田地图</h2>
+                    <div id="map">
+                        <!-- 网格线 -->
+                        <div class="grid-line" style="width:100%;height:1px;top:50%;left:0;"></div>
+                        <div class="grid-line" style="width:1px;height:100%;top:0;left:50%;"></div>
+                        <div id="robot" style="left:50%;top:50%;"></div>
+                    </div>
+                    <p style="text-align:center;margin-top:10px;color:#888;">
+                        💡 点击地图设置目标点进行导航
+                    </p>
+                </div>
+                
+                <div class="panel" style="margin-top:20px;">
+                    <h2>📊 任务进度</h2>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress" style="width:0%"></div>
+                    </div>
+                    <div id="task-status">等待任务...</div>
+                </div>
+            </div>
+            
+            <div class="right-col">
+                <div class="panel">
+                    <h2>📱 机器人状态</h2>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-value" id="state">IDLE</div>
+                            <div class="status-label">状态</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-value" id="battery">100%</div>
+                            <div class="status-label">电量</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-value" id="pos-x">0.0</div>
+                            <div class="status-label">X坐标</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-value" id="pos-y">0.0</div>
+                            <div class="status-label">Y坐标</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel" style="margin-top:20px;">
+                    <h2>🎮 控制面板</h2>
+                    <button class="btn btn-success" onclick="startRobot()">🚀 启动机器人</button>
+                    <button class="btn btn-warning" onclick="scanTargets()">🔍 扫描杂草</button>
+                    <button class="btn btn-danger" onclick="eradicateAll()">💥 清除所有杂草</button>
+                    <button class="btn btn-primary" onclick="startPatrol()">🚶 开始巡逻</button>
+                    <button class="btn btn-danger" onclick="emergencyStop()">🛑 紧急停止</button>
+                </div>
+                
+                <div class="panel" style="margin-top:20px;">
+                    <h2>🎯 目标列表</h2>
+                    <div class="target-list" id="target-list">
+                        <div style="text-align:center;color:#666;padding:20px;">暂无目标</div>
+                    </div>
+                </div>
+                
+                <div class="panel" style="margin-top:20px;">
+                    <h2>📝 操作日志</h2>
+                    <div class="log-area" id="log-area"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            🤖 Farm Robot OS v1.0 | 融合环境深度感知、自主导航、杂草识别、激光打击
+        </div>
+    </div>
+    
+    <script>
+        const MAP_SIZE = 10;
+        let targets = [];
+        let currentTask = null;
+        
+        function log(msg, type='info') {
+            const area = document.getElementById('log-area');
+            const time = new Date().toLocaleTimeString();
+            area.innerHTML = `<div class="log-item log-${type}">[${time}] ${msg}</div>` + area.innerHTML;
+        }
+        
+        function updateStatus() {
+            fetch('/api/status').then(r=>r.json()).then(data => {
+                document.getElementById('state').textContent = data.state.toUpperCase();
+                document.getElementById('battery').textContent = data.battery + '%';
+                document.getElementById('pos-x').textContent = data.position.x.toFixed(1);
+                document.getElementById('pos-y').textContent = data.position.y.toFixed(1);
+                
+                const robot = document.getElementById('robot');
+                const x = 50 + (data.position.x / MAP_SIZE) * 45;
+                const y = 50 - (data.position.y / MAP_SIZE) * 45;
+                robot.style.left = x + '%';
+                robot.style.top = y + '%';
+                robot.style.transform = `translate(-50%, -50%) rotate(${data.position.yaw * 57.3}deg)`;
+            });
+            
+            fetch('/api/targets').then(r=>r.json()).then(data => {
+                targets = data.targets;
+                renderTargets();
+            });
+            
+            setTimeout(updateStatus, 500);
+        }
+        
+        function renderTargets() {
+            const list = document.getElementById('target-list');
+            const map = document.getElementById('map');
+            
+            // 清除旧的标记
+            map.querySelectorAll('.target, .waypoint').forEach(e=>e.remove());
+            
+            if (targets.length === 0) {
+                list.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">暂无目标</div>';
+                return;
+            }
+            
+            let html = '';
+            targets.forEach((t, i) => {
+                html += `<div class="target-item">
+                    <span>目标 ${i+1}: ${t.type}</span>
+                    <span style="color:${t.confidence > 0.8 ? '#00ff88' : '#ffd700'}">${(t.confidence*100).toFixed(0)}%</span>
+                </div>`;
+                
+                // 在地图上显示
+                const tx = 50 + (t.x / MAP_SIZE) * 45;
+                const ty = 50 - (t.y / MAP_SIZE) * 45;
+                const marker = document.createElement('div');
+                marker.className = 'target';
+                marker.style.left = tx + '%';
+                marker.style.top = ty + '%';
+                marker.title = `目标${i+1}: ${t.type} (${(t.confidence*100).toFixed(0)}%)`;
+                map.appendChild(marker);
+            });
+            list.innerHTML = html;
+        }
+        
+        function startRobot() {
+            log('启动机器人...');
+            fetch('/api/start', {method:'POST'}).then(r=>r.json()).then(data => {
+                if (data.success) {
+                    log('机器人已启动', 'info');
+                }
+            });
+        }
+        
+        function scanTargets() {
+            log('开始扫描杂草...', 'warn');
+            fetch('/api/scan?duration=10', {method:'POST'}).then(r=>r.json()).then(data => {
+                log(`扫描完成，发现 ${data.targets.length} 个目标`, 'info');
+                document.getElementById('task-status').textContent = `发现 ${data.targets.length} 个杂草目标`;
+                document.getElementById('progress').style.width = '100%';
+            });
+        }
+        
+        function eradicateAll() {
+            if (targets.length === 0) {
+                log('没有目标可清除', 'warn');
+                return;
+            }
+            log(`开始清除 ${targets.length} 个目标...`, 'error');
+            fetch('/api/eradicate', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({targets:targets})
+            }).then(r=>r.json()).then(data => {
+                log(`清除完成: ${data.eradicated} 个目标`, 'info');
+                targets = [];
+                renderTargets();
+                document.getElementById('progress').style.width = '0%';
+                document.getElementById('task-status').textContent = '任务完成';
+            });
+        }
+        
+        function startPatrol() {
+            log('开始巡逻任务...', 'warn');
+            fetch('/api/patrol', {method:'POST'}).then(r=>r.json()).then(data => {
+                log('巡逻完成', 'info');
+            });
+        }
+        
+        function emergencyStop() {
+            log('紧急停止!', 'error');
+            fetch('/api/stop', {method:'POST'}).then(r=>r.json()).then(data => {
+                log('系统已停止', 'info');
+            });
+        }
+        
+        // 地图点击事件
+        document.getElementById('map').addEventListener('click', function(e) {
+            const rect = this.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width - 0.5) * MAP_SIZE * 2;
+            const y = -(e.clientY - rect.top) / rect.height * MAP_SIZE * 2 + MAP_SIZE;
+            
+            log(`导航到目标点 (${x.toFixed(1)}, ${y.toFixed(1)})`, 'info');
+            
+            fetch('/api/navigate', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({x:x, y:y})
+            }).then(r=>r.json()).then(data => {
+                if (data.success) {
+                    document.getElementById('task-status').textContent = `导航中: (${x.toFixed(1)}, ${y.toFixed(1)})`;
+                }
+            });
+        });
+        
+        log('控制台已连接');
+        updateStatus();
+    </script>
+</body>
+</html>
