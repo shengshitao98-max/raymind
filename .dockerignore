@@ -1,0 +1,43 @@
+# Dependencies
+*.pyc
+__pycache__/
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ROS2
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large model files
+models/
+*.gguf
+*.pt
+*.pth
+
+# Temp files
+tmp/
+temp/
+*/
