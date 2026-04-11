@@ -2,18 +2,52 @@
 
 ## 目录
 
-1. [硬件清单](#1-硬件清单)
-2. [硬件组装](#2-硬件组装)
-3. [软件安装](#3-软件安装)
-4. [机器人端配置](#4-机器人端配置)
-5. [控制端配置](#5-控制端配置)
-6. [连接测试](#6-连接测试)
-7. [使用方法](#7-使用方法)
-8. [故障排除](#8-故障排除)
+1. [快速开始](#1-快速开始)
+2. [硬件清单](#2-硬件清单)
+3. [硬件组装](#3-硬件组装)
+4. [Docker部署](#4-docker部署)
+5. [本地安装](#5-本地安装)
+6. [机器人端配置](#6-机器人端配置)
+7. [控制端配置](#7-控制端配置)
+8. [使用方法](#8-使用方法)
+9. [故障排除](#9-故障排除)
 
 ---
 
-## 1. 硬件清单
+## 1. 快速开始
+
+### 方式一：Docker部署（推荐）
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/shengshitao98-max/raymind.git
+cd raymind
+
+# 2. 构建Docker镜像
+docker build -t raymind/robot .
+
+# 3. 运行容器
+# 机器人端
+docker run -it --privileged --network host raymind/robot
+
+# 4. 启动ROS2
+ros2 launch raymind_robot robot.launch.py
+```
+
+### 方式二：本地安装
+
+```bash
+# 使用安装脚本
+chmod +x install.sh
+./install.sh
+
+# 启动GUI
+python3 raymind/gui.py
+```
+
+---
+
+## 2. 硬件清单
 
 ### 核心部件
 
@@ -37,9 +71,9 @@
 
 ---
 
-## 2. 硬件组装
+## 3. 硬件组装
 
-### 2.1 接口连线图
+### 3.1 接口连线图
 
 ```
 Jetson Orin Nano 40-pin GPIO
@@ -67,7 +101,7 @@ Jetson Orin Nano 40-pin GPIO
  39  GND    40  GPIO21
 ```
 
-### 2.2 传感器连接
+### 3.2 传感器连接
 
 | 传感器 | 接口 | 线序 |
 |--------|------|------|
@@ -77,7 +111,7 @@ Jetson Orin Nano 40-pin GPIO
 | GPS | UART | TX→RX, RX→TX, VCC→5V, GND→GND |
 | 电机驱动 | GPIO | 见上方GPIO表 |
 
-### 2.3 电源连接
+### 3.3 电源连接
 
 ```
 48V锂电池
@@ -93,48 +127,103 @@ Jetson Orin Nano 40-pin GPIO
 
 ---
 
-## 3. 软件安装
+## 4. Docker部署
 
-### 3.1 Jetson Orin Nano 系统
+### 4.1 构建镜像
 
 ```bash
-# 1. 安装Ubuntu 22.04 (Jetson Linux)
-# 下载地址: https://developer.nvidia.com/jetson-linux
+# 克隆项目
+git clone https://github.com/shengshitao98-max/raymind.git
+cd raymind
 
-# 2. 安装ROS2 Humble
-sudo apt update
-sudo apt install ros-humble-desktop
-source /opt/ros/humble/setup.bash
-
-# 3. 安装依赖
-sudo apt install python3-pip librealsense2-dev
-pip3 install numpy opencv-python smbus2
-
-# 4. 安装RealSense驱动
-sudo apt install ros-humble-realsense2-camera
+# 构建
+docker build -t raymind/robot:latest .
 ```
 
-### 3.2 控制电脑 (Ubuntu)
+### 4.2 运行容器
 
 ```bash
-# 1. 安装Ubuntu 22.04
-sudo apt update
-sudo apt install ros-humble-desktop
-source /opt/ros/humble/setup.bash
+# 机器人端 - 需要硬件访问权限
+docker run -it --privileged \
+    --network host \
+    --device /dev/ttyUSB0:/dev/ttyUSB0 \
+    --device /dev/video0:/dev/video0 \
+    -v /dev/bus/usb:/dev/bus/usb \
+    raymind/robot:latest
 
-# 2. 安装Python依赖
-pip3 install PyQt5 numpy opencv-python
+# 控制端 - 无需硬件
+docker run -it --network host raymind/robot:latest
+```
 
-# 3. 复制RayMind代码
-cd ~
-git clone https://github.com/raymind/raymind.git
+### 4.3 Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  robot:
+    image: raymind/robot:latest
+    container_name: raymind_robot
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/video0:/dev/video0
+    volumes:
+      - ./ros2_ws:/root/ros2_ws
+    environment:
+      - ROS_DOMAIN_ID=42
+
+  gui:
+    image: raymind/robot:latest
+    container_name: raymind_gui
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    command: python3 raymind/gui.py
 ```
 
 ---
 
-## 4. 机器人端配置
+## 5. 本地安装
 
-### 4.1 启动ROS2
+### 5.1 系统要求
+
+- Ubuntu 22.04 LTS
+- ROS2 Humble
+- Python 3.10+
+
+### 5.2 安装脚本
+
+```bash
+# 自动安装
+chmod +x install.sh
+./install.sh
+
+# 或手动安装
+sudo apt update
+sudo apt install -y python3-pip ros-humble-desktop
+
+pip3 install PyQt5 numpy opencv-python rclpy
+```
+
+### 5.3 ROS2工作空间
+
+```bash
+cd ~/raymind/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build
+source install/setup.bash
+```
+
+---
+
+## 6. 机器人端配置
+
+### 6.1 启动ROS2
 
 ```bash
 # SSH到机器人
@@ -144,12 +233,10 @@ ssh jetson@192.168.1.100
 cd ~/raymind/ros2_ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
-
-# 启动所有节点
 ros2 launch raymind_robot robot.launch.py
 ```
 
-### 4.2 启动各传感器
+### 6.2 启动各传感器
 
 ```bash
 # 启动相机
@@ -161,9 +248,9 @@ ros2 launch ydlidar_ros2_driver ydlidar.launch.py
 
 ---
 
-## 5. 控制端配置
+## 7. 控制端配置
 
-### 5.1 同一局域网
+### 7.1 同一局域网
 
 ```
 控制电脑 ──WiFi── 路由器 ──WiFi── 机器人
@@ -177,7 +264,7 @@ export ROS_DOMAIN_ID=42
 ros2 topic list
 ```
 
-### 5.2 启动GUI
+### 7.2 启动GUI
 
 ```bash
 # 控制端
@@ -187,51 +274,9 @@ python3 raymind/gui.py
 
 ---
 
-## 6. 连接测试
+## 8. 使用方法
 
-### 6.1 测试ROS2连接
-
-```bash
-# 查看话题
-ros2 topic list
-
-# 应该看到:
-# /cmd_vel
-# /odom
-# /scan
-# /imu/data
-# /gps/fix
-# /camera/image_raw
-```
-
-### 6.2 测试传感器
-
-```bash
-# 激光雷达
-ros2 topic hz /scan
-
-# 里程计
-ros2 topic echo /odom
-
-# 相机
-ros2 topic hz /camera/image_raw
-```
-
-### 6.3 测试控制
-
-```bash
-# 前进
-ros2 topic pub /cmd_vel geometry_msgs/Twist "{linear: {x: 0.5}}"
-
-# 停止
-ros2 topic pub /cmd_vel geometry_msgs/Twist "{linear: {x: 0.0}}"
-```
-
----
-
-## 7. 使用方法
-
-### 7.1 GUI操作
+### 8.1 GUI操作
 
 1. **启动GUI**
    ```bash
@@ -246,7 +291,7 @@ ros2 topic pub /cmd_vel geometry_msgs/Twist "{linear: {x: 0.0}}"
    - 使用方向键控制移动
    - 观察状态栏实时数据
 
-### 7.2 键盘控制
+### 8.2 键盘控制
 
 ```bash
 # 启动键盘控制
@@ -260,18 +305,11 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 # k = 停止
 ```
 
-### 7.3 自主导航
-
-```bash
-# 设置目标点
-ros2 topic pub /goal_pose geometry_msgs/PoseStamped "{pose: {position: {x: 5.0, y: 3.0}}}"
-```
-
 ---
 
-## 8. 故障排除
+## 9. 故障排除
 
-### 8.1 无法连接ROS2
+### 9.1 无法连接ROS2
 
 ```bash
 # 检查网络
@@ -284,7 +322,7 @@ echo $ROS_DOMAIN_ID
 ros2 topic list
 ```
 
-### 8.2 传感器无数据
+### 9.2 传感器无数据
 
 ```bash
 # 检查USB设备
@@ -294,7 +332,7 @@ lsusb
 dmesg | grep ttyUSB
 ```
 
-### 8.3 电机不动
+### 9.3 电机不动
 
 ```bash
 # 检查GPIO权限
@@ -309,7 +347,13 @@ ls -la /dev/gpio*
 
 ## 快速启动命令
 
-### 机器人端
+### 机器人端（Docker）
+```bash
+docker run -it --privileged --network host raymind/robot:latest
+ros2 launch raymind_robot robot.launch.py
+```
+
+### 机器人端（本地）
 ```bash
 ssh jetson@192.168.1.100
 cd ~/raymind/ros2_ws
@@ -327,5 +371,5 @@ python3 raymind/gui.py
 
 ---
 
-*文档版本: 1.0*
+*文档版本: 1.1*
 *更新日期: 2025*

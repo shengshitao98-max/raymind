@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  robot:
+    build: .
+    image: raymind/robot:latest
+    container_name: raymind_robot
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyUSB1:/dev/ttyUSB1
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+    volumes:
+      - ./ros2_ws:/root/ros2_ws
+      - ./raymind:/root/raymind
+    environment:
+      - ROS_DOMAIN_ID=42
+      - RAYMIND_DIR=/root/raymind
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  gui:
+    image: raymind/robot:latest
+    container_name: raymind_gui
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=42
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./raymind:/root/raymind
+    stdin_open: true
+    tty: true
+    depends_on:
+      - robot
+
+networks:
+  default:
+    driver: bridge
